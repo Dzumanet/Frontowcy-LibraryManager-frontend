@@ -1,0 +1,1 @@
+export { categoryUserDetails } from './userDetailsQueryOptions';
