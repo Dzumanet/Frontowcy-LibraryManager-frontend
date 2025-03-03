@@ -4,10 +4,23 @@ import { useState } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { categoryUserDetails } from "../../queries/users";
 import { Logout } from "../../components/Auth/Logout.tsx";
+import { useDeleteUserMutation } from "../../mutations/auth/useDeleteUserMutation.ts";
 
 export const UserProfile = () => {
     const { data: userData } = useSuspenseQuery(categoryUserDetails);
     const [password, setPassword] = useState("");
+    const { mutate: deleteAccount } = useDeleteUserMutation();
+    const [error, setError] = useState("");
+
+    const handleDelete = () => {
+        deleteAccount(undefined, {
+            onError: (error) => {
+                setError((error as Error).message);
+            },
+        });
+    };
+
+
 
     return (
         <Box sx={{ padding: 3 }}>
@@ -54,6 +67,14 @@ export const UserProfile = () => {
                 <Stack direction="row" spacing={2}>
                     <Notifications />
                     <Typography>Email notifications: Enabled</Typography>
+                </Stack>
+            </Card>
+            <Card sx={{ padding: 2, marginTop: 3 }}>
+                <Typography variant="h6">Delete account</Typography>
+                <Divider sx={{ my: 2 }} />
+                <Stack direction="row" spacing={2}>
+                    <Button onClick={handleDelete} variant="contained" color="error">Delete</Button>
+                    <p>{error}</p>
                 </Stack>
             </Card>
 
