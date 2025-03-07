@@ -1,85 +1,98 @@
-import { Box, Stack, Typography, Card, TextField, Button, Divider } from "@mui/material";
-import { Person, Email, Lock, Notifications } from "@mui/icons-material";
-import { useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { Box, Stack, Typography, Card, Button, Divider } from "@mui/material";
+import { AccountCircle } from "@mui/icons-material";
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { categoryUserDetails } from "../../queries/users";
+import { useAuthStore } from "../../store/useAuthStore.ts";
+import { useEffect, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Logout } from "../../components/Auth/Logout.tsx";
+import { DeleteUserAccountDialog } from "../../components/Modal/DeleteUserAccountDialog.tsx";
+import { myLoansOptions } from "../../queries/loans";
+import { UserPersonalInfo } from "../../components/UI/UserPersonalInfo.tsx";
+import { ChangePasswordForm } from "../../components/UI/ChangePasswordForm.tsx";
+import { EmailNotification } from "../../components/UI/EmailNotification.tsx";
 import { useDeleteUserMutation } from "../../mutations/auth/useDeleteUserMutation.ts";
+import { ServerMessageDialog } from "../../components/Modal/ServerMessageDialog.tsx";
+import { useNavigate } from "@tanstack/react-router";
 
 export const UserProfile = () => {
     const { data: userData } = useSuspenseQuery(categoryUserDetails);
-    const [password, setPassword] = useState("");
     const { mutate: deleteAccount } = useDeleteUserMutation();
-    const [error, setError] = useState("");
+    const { data } = useSuspenseQuery(myLoansOptions({}));
+    const clearAuthData = useAuthStore((store) => store.clearAuthData);
+    const [canDelete, setCanDelete] = useState(false);
+    const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+    const [openMessageDialog, setOpenMessageDialog] = useState(false);
+    const [serverMessage, setServerMessage] = useState("");
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        setCanDelete(data.meta.currentlyBorrowed === 0);
+    }, [data]);
+
+    const handleOpenConfirmDialog = () => {
+        setOpenConfirmDialog(true);
+    };
 
     const handleDelete = () => {
         deleteAccount(undefined, {
+            onSuccess: (data) => {
+                setServerMessage(data.message);
+                setOpenConfirmDialog(false);
+                setOpenMessageDialog(true);
+            },
             onError: (error) => {
-                setError((error as Error).message);
+                setServerMessage((error as Error).message);
+                setOpenConfirmDialog(false);
+                setOpenMessageDialog(true);
             },
         });
     };
 
-
+    const handleCloseMessageDialog = () => {
+        setOpenMessageDialog(false);
+        clearAuthData();
+        navigate({ to: "/" });
+    };
 
     return (
-        <Box sx={{ padding: 3 }}>
-            <Typography variant="h4" gutterBottom>👤 User Profile</Typography>
+        <Box sx={{ padding: { xs: 2, md: 4 } }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+                <AccountCircle sx={{ fontSize: 40, color: "primary.main" }} />
+                <Typography variant="h4">User Profile</Typography>
+            </Stack>
 
-            <Card sx={{ padding: 2, marginBottom: 3 }}>
-                <Typography variant="h6">Personal Information</Typography>
+            <UserPersonalInfo userData={userData} />
+
+            <ChangePasswordForm />
+
+            <EmailNotification />
+
+            <Card sx={{ padding: 3, marginBottom: 3, borderRadius: 2, boxShadow: 2 }}>
+                <Typography variant="h6" gutterBottom>Delete Account</Typography>
                 <Divider sx={{ my: 2 }} />
-                <Stack spacing={2}>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Person />
-                        <Typography><strong>Name:</strong> {userData.firstName}</Typography>
-                    </Stack>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Email />
-                        <Typography><strong>Email:</strong> {userData.email}</Typography>
-                    </Stack>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Lock />
-                        <Typography><strong>Role:</strong> {userData.role}</Typography>
-                    </Stack>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}
+                       alignItems={{ xs: "flex-start", sm: "center" }}>
+                    <Button
+                        onClick={handleOpenConfirmDialog}
+                        variant="contained"
+                        color={"error"}
+                        startIcon={<PersonRemoveIcon />}
+                        sx={{ minWidth: 120 }}
+                    >
+                        Delete
+                    </Button>
                 </Stack>
             </Card>
 
-            <Card sx={{ padding: 2, marginBottom: 3 }}>
-                <Typography variant="h6">Change Password</Typography>
-                <Divider sx={{ my: 2 }} />
-                <Stack spacing={2} direction="row">
-                    <TextField
-                        label="New Password"
-                        type="password"
-                        fullWidth
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <Button variant="contained" color="primary">Update</Button>
-                </Stack>
-            </Card>
+            <DeleteUserAccountDialog open={openConfirmDialog} onClose={() => setOpenConfirmDialog(false)}
+                                     onConfirm={handleDelete}
+                                     canDelete={canDelete} />
 
-
-            <Card sx={{ padding: 2, marginTop: 3 }}>
-                <Typography variant="h6">Notification Preferences</Typography>
-                <Divider sx={{ my: 2 }} />
-                <Stack direction="row" spacing={2}>
-                    <Notifications />
-                    <Typography>Email notifications: Enabled</Typography>
-                </Stack>
-            </Card>
-            <Card sx={{ padding: 2, marginTop: 3 }}>
-                <Typography variant="h6">Delete account</Typography>
-                <Divider sx={{ my: 2 }} />
-                <Stack direction="row" spacing={2}>
-                    <Button onClick={handleDelete} variant="contained" color="error">Delete</Button>
-                    <p>{error}</p>
-                </Stack>
-            </Card>
+            {!!serverMessage && <ServerMessageDialog open={openMessageDialog} onClose={handleCloseMessageDialog}
+                                                     serverMessage={serverMessage} />}
 
             <Logout />
-
         </Box>
     );
 };
